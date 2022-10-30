@@ -29,4 +29,4 @@ for i in data.index:
             'info': '-'
         }, ignore_index=True)
 
-information.to_csv('information.csv')
+information.to_csv('information.csv', sep=';')

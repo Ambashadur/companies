@@ -2,6 +2,7 @@ import pandas as pd
 import string
 import numpy as np
 from matplotlib import pyplot as plt
+import gensim.corpora
 
 from gensim.models import Word2Vec
 
@@ -15,7 +16,7 @@ from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
 
 
-def create_dataset(samples, mfields, sfields):
+def create_dataset(samples, mfields, sfields, info_about):
     stop_words = stopwords.words('russian') #cкачиваем массив русских стопслов
     lemmatizer = WordNetLemmatizer()
     trainX, trainY = list(), list() #входные и выходные данные нейронки
@@ -23,13 +24,19 @@ def create_dataset(samples, mfields, sfields):
     for i in samples.index:
         company = samples.loc[i]
 
-#исключаем компанию из обучающей выборки
+        #исключаем компанию из обучающей выборки
         if (company['Отрасль'] not in mfields['field_name'].tolist()
                 or company['Подотрасль'] not in sfields['sub_field_name'].tolist()):
             continue
 
         print(f'Process company {company["global_id"]}')
-        tokens = word_tokenize(company['Описание компании']) #разбиваем на отдельные слова в прложении
+
+        text = info_about[info_about['site'] == company['Сайт']]['info'].values[0]
+
+        if text is None or len(text) == 0:
+            text = company['Описание компании']
+
+        tokens = word_tokenize(text) #разбиваем на отдельные слова в прложении
 
         if len(tokens) == 0:
             continue
@@ -46,11 +53,22 @@ def create_dataset(samples, mfields, sfields):
 
             token = lemmatizer.lemmatize(token, pos) #апиводим каждое слово в изначальную форму
 
-            if len(token) > 0 and token not in string.punctuation and token.lower() not in stop_words:
+            if (len(token) > 0 and
+                    token not in string.punctuation and
+                    token.lower() not in stop_words and
+                    token not in '«»' and
+                    token not in string.digits):
                 cleaned_tokens.append(token.lower())
 
         if len(cleaned_tokens) == 0:
             continue
+
+        # --- TF-IDF ---
+        print(cleaned_tokens)
+        dictionary = gensim.corpora.Dictionary()
+        BoW_corpus = dictionary.doc2bow(cleaned_tokens, allow_update=True)
+        tfidf = gensim.models.TfidfModel([BoW_corpus], smartirs='ntc')
+        df = pd.DataFrame(tfidf[BoW_corpus], columns=['id', 'tfidf']).sort_values('tfidf', ascending=False)
 
         model = Word2Vec(sentences=[cleaned_tokens], vector_size=64, window=5, min_count=1) #перевод текста в вектор
 
@@ -67,8 +85,9 @@ if __name__ == '__main__':
     data = pd.read_excel('./datasets/1. Companies.xlsx')
     main_fields = pd.read_csv('./datasets/main_fields.csv', delimiter=';')
     sub_fields = pd.read_csv('./datasets/sub_fields.csv', delimiter=';')
+    info = pd.read_csv('./information.csv', index_col='Unnamed: 0', delimiter=';')
 
-    trainX, trainY = create_dataset(data, main_fields, sub_fields)
+    trainX, trainY = create_dataset(data, main_fields, sub_fields, info)
 
     trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
 

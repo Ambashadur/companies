@@ -1,10 +1,7 @@
-import keras.models
 import pandas as pd
 import string
 import numpy as np
 import tensorflow as tf
-import pickle
-from matplotlib import pyplot as plt
 
 from gensim.models import Word2Vec
 

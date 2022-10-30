@@ -57,4 +57,4 @@ for index in data.index:
     except:
         print(f'Failure for site: {entity["Сайт"]}')
 
-sites.to_csv('sites.csv') #формируем файл с сылками
+sites.to_csv('sites.csv', sep=';') #формируем файл с сылками
